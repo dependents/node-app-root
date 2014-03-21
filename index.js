@@ -20,7 +20,7 @@ module.exports = function (directory, cb) {
       // The app root is the file with the largest cumulative degree
       // There might be more than one root if there are independent apps
       // located within the same directory (perhaps lazily loaded)
-      var maxDegree = results.indexOf(Math.max.apply(Math, results)),
+      var maxDegree = Math.max.apply(Math, results),
           candidateRootFiles = jsFiles.filter(function (jsFile, idx) {
             // Its degree is the max degree
             return results[idx] === maxDegree;
