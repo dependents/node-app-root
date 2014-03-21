@@ -1,5 +1,5 @@
 var detective    = require('detective'),
-    detectiveAmd = require('node-detective-amd'),
+    detectiveAmd = require('detective-amd'),
     gmt          = require('module-definition'),
     required     = require('required'),
     fs           = require('fs'),
