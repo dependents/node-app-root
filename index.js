@@ -28,7 +28,7 @@ module.exports = function (directory, opt, cb) {
 function getIndependentJSFiles(jsFiles) {
 
   // For each file, mark its non-core dependencies as used
-  return q.all(jsFiles.map(getDependencies))
+  return q.all(jsFiles.map(getNonCoreDependencies))
     .then(function (results) {
       var filesUsed = {};
 
@@ -53,8 +53,8 @@ function getIndependentJSFiles(jsFiles) {
     });
 }
 
-// Resolve with a list of dependencies for the given file
-function getDependencies(jsFile) {
+// Resolve with a list of non-core dependencies for the given file
+function getNonCoreDependencies(jsFile) {
   return getModuleType(jsFile)
     // Configure required options
     .then(function (moduleType) {
@@ -69,8 +69,13 @@ function getDependencies(jsFile) {
 
       required(jsFile, options, function (err, deps) {
         if (err) console.log(jsFile, err);
+        deps = deps || [];
 
-        deferred.resolve(deps || []);
+        var nonCoreDeps = deps.filter(function (dep) {
+          return ! dep.core;
+        });
+
+        deferred.resolve(nonCoreDeps);
       });
 
       return deferred.promise;
