@@ -27,8 +27,8 @@
   "dependencies": {
     "module-definition": "^1.0.3",
     "detective": "^3.1.0",
-    "node-detective-amd": "^1.1.0",
     "required": "^0.4.0",
-    "q": "^1.0.1"
+    "q": "^1.0.1",
+    "detective-amd": "^2.0.0"
   }
 }
