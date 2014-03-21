@@ -1,5 +1,5 @@
 {
-  "name": "node-app-root",
+  "name": "app-root",
   "version": "0.0.0",
   "description": "Find the entry-point/root file of any CommonJS or AMD JavaScript application",
   "main": "index.js",
