@@ -7,8 +7,16 @@ var detective    = require('detective'),
     q            = require('q');
 
 // Calls the passed callback with a list of candidtate root filenames
-module.exports = function (directory, cb) {
-  var jsFiles = getAllJSFiles(directory);
+module.exports = function (directory, opt, cb) {
+  // opt is an optional configuration object
+  if (typeof opt === 'function') {
+    cb  = opt;
+    opt = {};
+  } else {
+    opt = opt || {};
+  }
+
+  var jsFiles = getAllJSFiles(directory, opt);
 
   // Given a directory, get the cumulative non-core degrees of all .js files
   var getAllDegrees = jsFiles.map(getCumulativeDegree);
@@ -108,7 +116,7 @@ function getModuleType(jsFile) {
 
 // Returns a list of all JavaScript filepaths
 // relative to the given directory
-function getAllJSFiles(directory) {
+function getAllJSFiles(directory, opt) {
   var jsFilePaths = [];
 
   fs.readdirSync(directory).forEach(function (filename) {
@@ -117,12 +125,34 @@ function getAllJSFiles(directory) {
         ext         = path.extname(filename);
 
     if (isDirectory) {
-      jsFilePaths = jsFilePaths.concat(getAllJSFiles(fullName));
+      if (opt.ignore && ! shouldBeIgnored(filename, opt.ignore) ||
+          (! opt.ignore || ! opt.ignore.length)) {
 
+        jsFilePaths = jsFilePaths.concat(getAllJSFiles(fullName, opt));
+      }
     } else if (ext === '.js') {
       jsFilePaths.push(fullName);
     }
   });
 
   return jsFilePaths;
+}
+
+// This is shared with node-unique-extensions but should be
+// within exposed within its own module.
+function shouldBeIgnored(filename, exclusions) {
+  var result = false;
+
+  exclusions = exclusions || [];
+
+  for (var i = 0, l = exclusions.length; i < l; i++) {
+    // If any part of the file's name (absolute or relative)
+    // contains an excluded folder, it should be ignored
+    if (filename.indexOf(exclusions[i]) !== -1) {
+      result = true;
+      break;
+    }
+  }
+
+  return result;
 }
