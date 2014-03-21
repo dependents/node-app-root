@@ -4,7 +4,7 @@ var options = {
   ignore: ['bower_components']
 };
 
-getAppRoot(__dirname + '/commonjs', options, function (root) {
+getAppRoot(__dirname + '/commonjs', function (root) {
   console.log('CommonJS Candidate root: ', root);
   console.log(root.length === 1);
   console.log(root[0].indexOf('a2.js') !== -1);
