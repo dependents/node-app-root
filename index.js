@@ -11,9 +11,7 @@ module.exports = function (directory, cb) {
   var jsFiles = getAllJSFiles(directory);
 
   // Given a directory, get the cumulative non-core degrees of all .js files
-  var getAllDegrees = jsFiles.map(function (jsFile) {
-    return getCumulativeDegree(jsFile);
-  });
+  var getAllDegrees = jsFiles.map(getCumulativeDegree);
 
   q.all(getAllDegrees)
     .then(function (results) {
