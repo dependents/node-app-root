@@ -18,29 +18,39 @@ module.exports = function (directory, opt, cb) {
 
   var jsFiles = getAllJSFiles(directory, opt);
 
-  // Given a directory, get the cumulative non-core degrees of all .js files
-  var getAllDegrees = jsFiles.map(getCumulativeDegree);
-
-  q.all(getAllDegrees)
-    .then(function (results) {
-      // The app root is the file with the largest cumulative degree
-      // There might be more than one root if there are independent apps
-      // located within the same directory (perhaps lazily loaded)
-      var maxDegree = Math.max.apply(Math, results),
-          candidateRootFiles = jsFiles.filter(function (jsFile, idx) {
-            // Its degree is the max degree
-            return results[idx] === maxDegree;
-          });
-
-      cb && cb(candidateRootFiles);
+  // Get all files that are not depended on
+  getIndependentJSFiles(jsFiles)
+    .done(function (jsFiles) {
+      cb && cb(jsFiles);
     });
 };
 
-// Resolves with the sum of non-core dependencies for the file's dependency graph
-function getCumulativeDegree(jsFile) {
-  return getDependencies(jsFile)
-    // Get degree of root file + each non-core dependency
-    .then(getNonCoreDegree);
+function getIndependentJSFiles(jsFiles) {
+
+  // For each file, mark its non-core dependencies as used
+  return q.all(jsFiles.map(getDependencies))
+    .then(function (results) {
+      var filesUsed = {};
+
+      results.forEach(function (deps, idx) {
+        // Files with no dependencies are useless and should not be roots
+        if (! deps || ! deps.length) {
+          filesUsed[jsFiles[idx]] = true;
+
+        } else {
+          deps.forEach(function (dep) {
+            if (dep.core) return;
+
+            filesUsed[dep.filename] = true;
+          });
+        }
+      });
+
+      // Return all unused js files
+      return jsFiles.filter(function (jsFile) {
+        return typeof filesUsed[jsFile] === 'undefined';
+      });
+    });
 }
 
 // Resolve with a list of dependencies for the given file
@@ -65,28 +75,6 @@ function getDependencies(jsFile) {
 
       return deferred.promise;
     });
-}
-
-// Returns the number (degree) of non-core dependencies
-// by traversing the entire dependency tree
-function getNonCoreDegree(deps) {
-  var count = 0;
-
-  if (! deps || ! deps.length) return count;
-
-  deps.forEach(function (dep) {
-    if (! dep || dep.core) return;
-
-    // Count the current dependency
-    count++;
-
-    // Count the sub dependencies
-    if (dep.deps) {
-      count += getNonCoreDegree(dep.deps);
-    }
-  });
-
-  return count;
 }
 
 // Returns the detective function appropriate to

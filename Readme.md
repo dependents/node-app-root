@@ -1,6 +1,6 @@
-Returns a list of candidate root files for CommonJS or AMD JavaScript applications within a directory
-by ranking each .js file based on its largest, cumulative, non-core degree (i.e., sum of non-core
-dependencies across the entire dependency graph).
+Returns a list of candidate root files for CommonJS or AMD JavaScript applications within a directory.
+
+A root/entry-point file is one that has dependencies but is not depended on (i.e., no other file requires it).
 
 `npm install app-root`
 
