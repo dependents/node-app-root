@@ -6,6 +6,7 @@
 var fs = require('fs'),
     path = require('path'),
     exec = require('child_process').exec,
-    http = require('http');
+    http = require('http'),
+    a = require('./a');
 
 console.log('Booyah');
