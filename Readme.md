@@ -15,7 +15,20 @@ getAppRoot('./js', function (roots) {
 })
 ```
 
-# TODO:
+### Ignoring particular subdirectories
 
-* Accept option (as second param) object with subdirectories to ignore in directory traversal (i.e., node_modules, vendor, bower_components)
- * Otherwise, we'll get non-relevant roots
+Supply an options object as the second parameter with a field `ignore`
+that contains a list of the directories that you want to ignore
+when looking for candidate app roots.
+
+*Otherwise, you'd end up with junk roots for 3rd party libraries/dependencies.*
+
+```javascript
+var options = {
+  ignore: ['bower_components', 'vendor', 'node_modules', '.git']
+};
+
+getAppRoot('./js', options, function (roots) {
+  ...
+})
+```
