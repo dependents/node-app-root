@@ -6,6 +6,7 @@ var detective    = require('detective'),
     path         = require('path'),
     q            = require('q');
 
+// Calls the passed callback with a list of candidtate root filenames
 module.exports = function (directory, cb) {
   var jsFiles = getAllJSFiles(directory);
 
@@ -17,12 +18,15 @@ module.exports = function (directory, cb) {
   q.all(getAllDegrees)
     .then(function (results) {
       // The app root is the file with the largest cumulative degree
-      // For now, only choose the first file with the largest degree
-      // TODO: Tiebreak if there are multiple candidate roots
-      var candidateIndex = results.indexOf(Math.max.apply(Math, results)),
-          candidateRootFile = jsFiles[candidateIndex];
+      // There might be more than one root if there are independent apps
+      // located within the same directory (perhaps lazily loaded)
+      var maxDegree = results.indexOf(Math.max.apply(Math, results)),
+          candidateRootFiles = jsFiles.filter(function (jsFile, idx) {
+            // Its degree is the max degree
+            return results[idx] === maxDegree;
+          });
 
-      cb(candidateRootFile);
+      cb && cb(candidateRootFiles);
     });
 };
 
