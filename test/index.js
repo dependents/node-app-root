@@ -1,7 +1,8 @@
 var getAppRoot = require('../');
 
 var options = {
-  ignore: ['bower_components']
+  ignoreDirectories: ['bower_components'],
+  ignoreFiles: ['index.js']
 };
 
 getAppRoot(__dirname + '/commonjs', function (root) {

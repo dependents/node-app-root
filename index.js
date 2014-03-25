@@ -110,7 +110,9 @@ function getModuleType(jsFile) {
 // Returns a list of all JavaScript filepaths
 // relative to the given directory
 function getAllJSFiles(directory, opt) {
-  var jsFilePaths = [];
+  var jsFilePaths = [],
+      ignoreDirs  = opt.ignoreDirectories || [],
+      ignoreFiles = opt.ignoreFiles || [];
 
   fs.readdirSync(directory).forEach(function (filename) {
     var fullName    = directory + '/' + filename,
@@ -118,12 +120,13 @@ function getAllJSFiles(directory, opt) {
         ext         = path.extname(filename);
 
     if (isDirectory) {
-      if (opt.ignore && ! shouldBeIgnored(filename, opt.ignore) ||
-          (! opt.ignore || ! opt.ignore.length)) {
+      if (ignoreDirs.length && shouldBeIgnored(filename, ignoreDirs)) return;
 
-        jsFilePaths = jsFilePaths.concat(getAllJSFiles(fullName, opt));
-      }
+      jsFilePaths = jsFilePaths.concat(getAllJSFiles(fullName, opt));
+
     } else if (ext === '.js') {
+      if (ignoreFiles && shouldBeIgnored(filename, ignoreFiles)) return;
+
       jsFilePaths.push(fullName);
     }
   });
