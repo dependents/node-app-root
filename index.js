@@ -26,7 +26,6 @@ module.exports = function (directory, opt, cb) {
 };
 
 function getIndependentJSFiles(jsFiles) {
-
   // For each file, mark its non-core dependencies as used
   return q.all(jsFiles.map(getNonCoreDependencies))
     .then(function (results) {
@@ -35,7 +34,7 @@ function getIndependentJSFiles(jsFiles) {
       results.forEach(function (deps, idx) {
         // Files with no dependencies are useless and should not be roots
         if (! deps || ! deps.length) {
-          filesUsed[jsFiles[idx]] = true;
+          filesUsed[path.resolve(jsFiles[idx])] = true;
 
         } else {
           deps.forEach(function (dep) {
@@ -48,7 +47,7 @@ function getIndependentJSFiles(jsFiles) {
 
       // Return all unused js files
       return jsFiles.filter(function (jsFile) {
-        return typeof filesUsed[jsFile] === 'undefined';
+        return typeof filesUsed[path.resolve(jsFile)] === 'undefined';
       });
     });
 }
