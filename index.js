@@ -34,7 +34,7 @@ function getIndependentJSFiles(jsFiles) {
       results.forEach(function (deps, idx) {
         // Files with no dependencies are useless and should not be roots
         if (! deps || ! deps.length) {
-          filesUsed[path.resolve(jsFiles[idx])] = true;
+          filesUsed[jsFiles[idx]] = true;
 
         } else {
           deps.forEach(function (dep) {
@@ -47,7 +47,7 @@ function getIndependentJSFiles(jsFiles) {
 
       // Return all unused js files
       return jsFiles.filter(function (jsFile) {
-        return typeof filesUsed[path.resolve(jsFile)] === 'undefined';
+        return typeof filesUsed[jsFile] === 'undefined';
       });
     });
 }
@@ -126,7 +126,7 @@ function getAllJSFiles(directory, opt) {
     } else if (ext === '.js') {
       if (ignoreFiles && shouldBeIgnored(filename, ignoreFiles)) return;
 
-      jsFilePaths.push(fullName);
+      jsFilePaths.push(path.resolve(fullName));
     }
   });
 
