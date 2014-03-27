@@ -17,15 +17,20 @@ getAppRoot('./js', function (roots) {
 
 ### Ignoring particular subdirectories or files
 
-Supply an options object as the second parameter with a field `ignoreDirectories` or `ignoreFiles`
-that contains a list of the directories or files (respectively) that you want to ignore
-when looking for candidate app roots.
+Supply an options object as the second parameter.
+
+Supported options:
+
+* `ignoreDirectories`: list of directory names (strings or regex) to ignore
+* `ignoreFiles`: list of file names (strings or regex) to ignore
+
+Directory or filenames that match elements of the above lists will be ignored when looking for candidate app roots.
 
 *Otherwise, you'd end up with junk roots for 3rd party libraries/dependencies.*
 
 ```javascript
 var options = {
-  ignoreDirectories: ['bower_components', 'vendor', 'node_modules', '.git'],
+  ignoreDirectories: [/.+_components/, 'vendor', 'node_modules', '.git'],
   ignoreFiles: ['Gruntfile.js']
 };
 

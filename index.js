@@ -16,7 +16,14 @@ module.exports = function (directory, opt, cb) {
     opt = opt || {};
   }
 
-  var jsFiles = getAllJSFiles(directory, opt);
+  // Convert directories/files to ignore to regexes
+  // Avoid tampering with the passed in object
+  var options = {
+    ignoreDirectories: getRegexes(opt.ignoreDirectories || []),
+    ignoreFiles:       getRegexes(opt.ignoreFiles || [])
+  };
+
+  var jsFiles = getAllJSFiles(directory, options);
 
   // Get all files that are not depended on
   getIndependentJSFiles(jsFiles)
@@ -110,8 +117,8 @@ function getModuleType(jsFile) {
 // relative to the given directory
 function getAllJSFiles(directory, opt) {
   var jsFilePaths = [],
-      ignoreDirs  = opt.ignoreDirectories || [],
-      ignoreFiles = opt.ignoreFiles || [];
+      ignoreDirs  = opt.ignoreDirectories,
+      ignoreFiles = opt.ignoreFiles;
 
   fs.readdirSync(directory).forEach(function (filename) {
     var fullName    = directory + '/' + filename,
@@ -133,21 +140,26 @@ function getAllJSFiles(directory, opt) {
   return jsFilePaths;
 }
 
-// This is shared with node-unique-extensions but should be
-// within exposed within its own module.
+// Whether or not the given filename matches a pattern to exclude
 function shouldBeIgnored(filename, exclusions) {
-  var result = false;
-
-  exclusions = exclusions || [];
-
   for (var i = 0, l = exclusions.length; i < l; i++) {
-    // If any part of the file's name (absolute or relative)
-    // contains an excluded folder, it should be ignored
-    if (filename.indexOf(exclusions[i]) !== -1) {
-      result = true;
-      break;
-    }
+    if (exclusions[i].test(filename)) return true;
   }
 
-  return result;
+  return false;
+}
+
+// Returns a list of RegExp objects for each string in the given list
+function getRegexes(exclusions) {
+  return exclusions.map(function (exclusion) {
+    if (exclusion instanceof RegExp) return exclusion;
+
+    return new RegExp(escapeRegExp(exclusion));
+  });
+}
+
+// Escapes the string's special chars to use it as a regular expression
+// http://stackoverflow.com/a/6969486/700897
+function escapeRegExp(str) {
+  return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
 }

@@ -1,6 +1,7 @@
 var getAppRoot = require('../');
 
 var options = {
+  // ignoreDirectories: [/.+_components/],
   ignoreDirectories: ['bower_components'],
   ignoreFiles: ['index.js']
 };
