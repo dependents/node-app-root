@@ -29,6 +29,7 @@
     "detective": "^3.1.0",
     "required": "^0.4.0",
     "q": "^1.0.1",
-    "detective-amd": "^2.0.0"
+    "detective-amd": "^2.0.0",
+    "exclusion-manager": "^1.0.1"
   }
 }

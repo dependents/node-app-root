@@ -4,7 +4,8 @@ var detective    = require('detective'),
     required     = require('required'),
     fs           = require('fs'),
     path         = require('path'),
-    q            = require('q');
+    q            = require('q'),
+    ExclusionManager = require('exclusion-manager');
 
 // Calls the passed callback with a list of candidtate root filenames
 module.exports = function (directory, opt, cb) {
@@ -16,11 +17,10 @@ module.exports = function (directory, opt, cb) {
     opt = opt || {};
   }
 
-  // Convert directories/files to ignore to regexes
   // Avoid tampering with the passed in object
   var options = {
-    ignoreDirectories: getRegexes(opt.ignoreDirectories || []),
-    ignoreFiles:       getRegexes(opt.ignoreFiles || [])
+    dirManager:  new ExclusionManager(opt.ignoreDirectories),
+    fileManager: new ExclusionManager(opt.ignoreFiles)
   };
 
   var jsFiles = getAllJSFiles(directory, options);
@@ -31,6 +31,31 @@ module.exports = function (directory, opt, cb) {
       cb && cb(jsFiles);
     });
 };
+
+// Returns a list of all JavaScript filepaths
+// relative to the given directory
+function getAllJSFiles(directory, opt) {
+  var jsFilePaths = [];
+
+  fs.readdirSync(directory).forEach(function (filename) {
+    var fullName    = directory + '/' + filename,
+        isDirectory = fs.lstatSync(fullName).isDirectory(),
+        ext         = path.extname(filename);
+
+    if (isDirectory) {
+      if (opt.dirManager.shouldIgnore(filename)) return;
+
+      jsFilePaths = jsFilePaths.concat(getAllJSFiles(fullName, opt));
+
+    } else if (ext === '.js') {
+      if (opt.fileManager.shouldIgnore(filename)) return;
+
+      jsFilePaths.push(path.resolve(fullName));
+    }
+  });
+
+  return jsFilePaths;
+}
 
 function getIndependentJSFiles(jsFiles) {
   // For each file, mark its non-core dependencies as used
@@ -111,55 +136,4 @@ function getModuleType(jsFile) {
   });
 
   return deferred.promise;
-}
-
-// Returns a list of all JavaScript filepaths
-// relative to the given directory
-function getAllJSFiles(directory, opt) {
-  var jsFilePaths = [],
-      ignoreDirs  = opt.ignoreDirectories,
-      ignoreFiles = opt.ignoreFiles;
-
-  fs.readdirSync(directory).forEach(function (filename) {
-    var fullName    = directory + '/' + filename,
-        isDirectory = fs.lstatSync(fullName).isDirectory(),
-        ext         = path.extname(filename);
-
-    if (isDirectory) {
-      if (ignoreDirs.length && shouldBeIgnored(filename, ignoreDirs)) return;
-
-      jsFilePaths = jsFilePaths.concat(getAllJSFiles(fullName, opt));
-
-    } else if (ext === '.js') {
-      if (ignoreFiles && shouldBeIgnored(filename, ignoreFiles)) return;
-
-      jsFilePaths.push(path.resolve(fullName));
-    }
-  });
-
-  return jsFilePaths;
-}
-
-// Whether or not the given filename matches a pattern to exclude
-function shouldBeIgnored(filename, exclusions) {
-  for (var i = 0, l = exclusions.length; i < l; i++) {
-    if (exclusions[i].test(filename)) return true;
-  }
-
-  return false;
-}
-
-// Returns a list of RegExp objects for each string in the given list
-function getRegexes(exclusions) {
-  return exclusions.map(function (exclusion) {
-    if (exclusion instanceof RegExp) return exclusion;
-
-    return new RegExp(escapeRegExp(exclusion));
-  });
-}
-
-// Escapes the string's special chars to use it as a regular expression
-// http://stackoverflow.com/a/6969486/700897
-function escapeRegExp(str) {
-  return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
 }
