@@ -24,6 +24,8 @@ Supported options:
 * `ignoreDirectories`: list of directory names (strings or regex) to ignore
 * `ignoreFiles`: list of file names (strings or regex) to ignore
 
+These lists will be managed by an [exclusion-manager](https://github.com/mrjoelkemp/node-exclusion-manager).
+
 Directory or filenames that match elements of the above lists will be ignored when looking for candidate app roots.
 
 *Otherwise, you'd end up with junk roots for 3rd party libraries/dependencies.*
