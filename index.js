@@ -7,7 +7,7 @@ var detective    = require('detective'),
     q            = require('q'),
     ExclusionManager = require('exclusion-manager');
 
-// Calls the passed callback with a list of candidtate root filenames
+// Calls the passed callback with a list of candidate root filenames
 module.exports = function (directory, opt, cb) {
   // opt is an optional configuration object
   if (typeof opt === 'function') {
