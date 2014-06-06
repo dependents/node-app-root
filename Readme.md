@@ -2,9 +2,11 @@ Returns a list of candidate root files for CommonJS or AMD JavaScript applicatio
 
 A root/entry-point file is one that has dependencies but is not depended on (i.e., no other file requires it).
 
+*This is useful for automatically deducing the entry point for r.js or browserify configurations.*
+
 `npm install app-root`
 
-*This is useful for automatically deducing the entry point for r.js or browserify configurations.*
+### Usage
 
 ```javascript
 var getAppRoot = require('app-root');
@@ -14,6 +16,12 @@ getAppRoot('./js', function (roots) {
   ...
 })
 ```
+
+Or via a shell command
+
+`approot directory`
+
+* Where `directory` is the directory containing roots you'd like to identify
 
 ### Ignoring particular subdirectories or files
 
