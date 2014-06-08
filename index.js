@@ -7,7 +7,18 @@ var detective    = require('detective'),
     q            = require('q'),
     ExclusionManager = require('exclusion-manager');
 
-// Calls the passed callback with a list of candidate root filenames
+/**
+ * Calls the given callback with a list of candidate root filenames
+ *
+ * @param  {String}   directory
+ *
+ * @param  {Object}   opt                             Configuration options
+ * @param  {Array}    opt.ignoreDirectories           List of directory names to ignore in the root search
+ * @param  {Array}    opt.ignoreFiles                 List of filesnames to ignore in the root search
+ * @param  {Boolean}  opt.includeNoDependencyModules  Whether or not to include, as roots, modules that are
+ *                                                    independent (no one depends on) and have no dependencies
+ * @param  {Function} cb Expected Format: function (roots) {}
+ */
 module.exports = function (directory, opt, cb) {
   // opt is an optional configuration object
   if (typeof opt === 'function') {
@@ -21,14 +32,13 @@ module.exports = function (directory, opt, cb) {
   var options = {
     dirManager:  new ExclusionManager(opt.ignoreDirectories),
     fileManager: new ExclusionManager(opt.ignoreFiles)
-  };
-
-  var jsFiles = getAllJSFiles(directory, options);
+  },
+  jsFiles = getAllJSFiles(directory, options);
 
   // Get all files that are not depended on
-  getIndependentJSFiles(jsFiles)
+  getIndependentJSFiles(jsFiles, opt.includeNoDependencyModules)
     .done(function (jsFiles) {
-      cb && cb(jsFiles);
+      if (cb) cb(jsFiles);
     });
 };
 
@@ -57,7 +67,7 @@ function getAllJSFiles(directory, opt) {
   return jsFilePaths;
 }
 
-function getIndependentJSFiles(jsFiles) {
+function getIndependentJSFiles(jsFiles, includeNoDependencyModules) {
   // For each file, mark its non-core dependencies as used
   return q.all(jsFiles.map(getNonCoreDependencies))
     .then(function (results) {
@@ -65,7 +75,7 @@ function getIndependentJSFiles(jsFiles) {
 
       results.forEach(function (deps, idx) {
         // Files with no dependencies are useless and should not be roots
-        if (! deps || ! deps.length) {
+        if (! includeNoDependencyModules && (! deps || ! deps.length)) {
           filesUsed[jsFiles[idx]] = true;
 
         } else {
