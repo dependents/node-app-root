@@ -1,3 +1,4 @@
+// root
 define(function (require) {
 
   var fs = require('fs'),

@@ -1,3 +1,4 @@
+// non-root
 define(function (require) {
 
   // Should be the root node unless require by another file
