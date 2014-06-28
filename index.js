@@ -17,7 +17,7 @@ var detective    = require('detective'),
  * @param  {Array}    opt.ignoreFiles                 List of filesnames to ignore in the root search
  * @param  {Boolean}  opt.includeNoDependencyModules  Whether or not to include, as roots, modules that are
  *                                                    independent (no one depends on) and have no dependencies
- * @param  {Function} cb Expected Format: function (roots) {}
+ * @param  {Function} cb - ({Array}) -> null
  */
 module.exports = function (directory, opt, cb) {
   // opt is an optional configuration object
@@ -33,22 +33,41 @@ module.exports = function (directory, opt, cb) {
     dirManager:  new ExclusionManager(opt.ignoreDirectories),
     fileManager: new ExclusionManager(opt.ignoreFiles)
   },
+  jsFiles;
+
+  directory = path.resolve(directory);
+
   jsFiles = getAllJSFiles(directory, options);
 
+  // Filter out non-modules
+  jsFiles = jsFiles.filter(function(file) {
+    return gmt.sync(file) !== 'none';
+  });
+
+  options.includeNoDependencyModules = true;
+  options.directory = directory;
+
   // Get all files that are not depended on
-  getIndependentJSFiles(jsFiles, opt.includeNoDependencyModules)
+  getIndependentJSFiles(jsFiles, options)
     .done(function (jsFiles) {
-      if (cb) cb(jsFiles);
+      cb(jsFiles);
     });
 };
 
-// Returns a list of all JavaScript filepaths
-// relative to the given directory
+/**
+ * Returns a list of all JavaScript filepaths relative to the given directory
+ *
+ * @param  {String}           directory
+ * @param  {Object}           opt
+ * @param  {ExclusionManager} opt.dirManager
+ * @param  {ExclusionManager} opt.fileManager
+ * @return {Array}
+ */
 function getAllJSFiles(directory, opt) {
   var jsFilePaths = [];
 
   fs.readdirSync(directory).forEach(function (filename) {
-    var fullName    = directory + '/' + filename,
+    var fullName    = path.resolve(directory, filename),
         isDirectory = fs.lstatSync(fullName).isDirectory(),
         ext         = path.extname(filename);
 
@@ -60,72 +79,107 @@ function getAllJSFiles(directory, opt) {
     } else if (ext === '.js') {
       if (opt.fileManager.shouldIgnore(filename)) return;
 
-      jsFilePaths.push(path.resolve(fullName));
+      jsFilePaths.push(fullName);
     }
   });
 
   return jsFilePaths;
 }
 
-function getIndependentJSFiles(jsFiles, includeNoDependencyModules) {
+/**
+ * @param  {Array}    jsFiles
+ * @param  {Object}   options
+ * @param  {Boolean}  options.includeNoDependencyModules
+ * @return {Promise}  ({Array}) -> null Resolves with the list of independent filenames
+ */
+function getIndependentJSFiles(jsFiles, options) {
   // For each file, mark its non-core dependencies as used
   return q.all(jsFiles.map(getNonCoreDependencies))
     .then(function (results) {
-      var filesUsed = {};
+      // A look up table of all files used as dependencies within the directory
+      var dependencies = {};
 
       results.forEach(function (deps, idx) {
         // Files with no dependencies are useless and should not be roots
-        if (! includeNoDependencyModules && (! deps || ! deps.length)) {
-          filesUsed[jsFiles[idx]] = true;
+        if (! options.includeNoDependencyModules && (! deps || ! deps.length)) {
+          dependencies[jsFiles[idx]] = true;
 
         } else {
           deps.forEach(function (dep) {
             if (dep.core) return;
 
-            filesUsed[dep.filename] = true;
+            if (dep.filename.indexOf('.js') === -1) {
+              dep.filename += '.js';
+            }
+
+            dependencies[dep.filename] = true;
           });
         }
       });
 
-      // Return all unused js files
+      // Return all unused (independent) js files
       return jsFiles.filter(function (jsFile) {
-        return typeof filesUsed[jsFile] === 'undefined';
+        return typeof dependencies[jsFile] === 'undefined';
       });
     });
 }
 
-// Resolve with a list of non-core dependencies for the given file
+/**
+ * Resolve with a list of non-core dependencies for the given file
+ * @param  {Object} opts
+ * @param  {Object} opts
+ * @param  {[type]} jsFile [description]
+ * @return {[type]}        [description]
+ */
 function getNonCoreDependencies(jsFile) {
   return getModuleType(jsFile)
-    // Configure required options
     .then(function (moduleType) {
-      return {
+      // Options for required
+      var options = {
         detective:     getAppropriateDetective(moduleType),
         ignoreMissing: true
-      };
-    })
-    // Use required to get the file's dependency list
-    .then(function (options) {
-      var deferred = q.defer();
+      },
 
-      required(jsFile, options, function (err, deps) {
-        if (err) console.log(jsFile, err);
-        deps = deps || [];
+      deferred = q.defer();
 
-        var nonCoreDeps = deps.filter(function (dep) {
-          return ! dep.core;
+      // Bypass required since it doesn't play well with amd dependencies
+      // TODO: Consider using a custom resolver with required
+      if (moduleType === 'amd') {
+        var content = fs.readFileSync(jsFile).toString(),
+            fileDir = path.dirname(jsFile),
+            deps = options.detective(content).map(function(d) {
+              return {
+                filename: path.resolve(fileDir, d)
+              };
+            });
+
+        deferred.resolve(deps);
+
+      } else if (moduleType === 'commonjs') {
+        required(jsFile, options, function (err, deps) {
+          if (err) console.log(jsFile, err);
+          deps = deps || [];
+
+          var nonCoreDeps = deps.filter(function (dep) {
+            return ! dep.core;
+          });
+
+          deferred.resolve(nonCoreDeps);
         });
 
-        deferred.resolve(nonCoreDeps);
-      });
+      } else {
+        deferred.resolve([]);
+      }
 
       return deferred.promise;
     });
 }
 
-// Returns the detective function appropriate to
-// the given module type
-// Precond: moduleType is 'commonjs' or 'amd'
+/**
+ * Returns the detective function appropriate to the given module type
+ * @param  {String} moduleType
+ * @return {Function|null} The detective for the module type
+ */
 function getAppropriateDetective(moduleType) {
   switch (moduleType) {
     case 'commonjs':
@@ -137,7 +191,11 @@ function getAppropriateDetective(moduleType) {
   return null;
 }
 
-// Promisified wrapper of gmt
+/**
+ * Promisified wrapper of gmt
+ * @param  {String} jsFile
+ * @return {Promise} - ({String}) -> null - Resolves with the file's module type
+ */
 function getModuleType(jsFile) {
   var deferred = q.defer();
 
