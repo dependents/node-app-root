@@ -1,207 +1,148 @@
-var detective    = require('detective'),
-    detectiveAmd = require('detective-amd'),
-    gmt          = require('module-definition'),
-    required     = require('required'),
-    fs           = require('fs'),
-    path         = require('path'),
-    q            = require('q'),
-    ExclusionManager = require('exclusion-manager');
+var precinct = require('precinct');
+var path = require('path');
+var q = require('q');
+var dir = require('node-dir');
+var gmt = require('module-definition');
 
 /**
  * Calls the given callback with a list of candidate root filenames
  *
- * @param  {String}   directory
+ * @param {Object} options - Configuration options
+ * @param {String} options.directory - Where to look for roots
+ * @param {Function} options.success - Executed with the list of roots
  *
- * @param  {Object}   opt                             Configuration options
- * @param  {Array}    opt.ignoreDirectories           List of directory names to ignore in the root search
- * @param  {Array}    opt.ignoreFiles                 List of filesnames to ignore in the root search
- * @param  {Boolean}  opt.includeNoDependencyModules  Whether or not to include, as roots, modules that are
- *                                                    independent (no one depends on) and have no dependencies
- * @param  {Function} cb - ({Array}) -> null
+ * @param {Array} [options.ignoreDirectories] - List of directory names to ignore in the root search
+ * @param {Array} [options.ignoreFiles] - List of filenames to ignore in the root search
+ * @param {Boolean} [options.includeNoDependencyModules=undefined] - Whether or not to include modules with no dependencies
  */
-module.exports = function (directory, opt, cb) {
-  // opt is an optional configuration object
-  if (typeof opt === 'function') {
-    cb  = opt;
-    opt = {};
-  } else {
-    opt = opt || {};
-  }
+module.exports = function(options) {
+  options = options || {};
 
-  // Avoid tampering with the passed in object
-  var options = {
-    dirManager:  new ExclusionManager(opt.ignoreDirectories),
-    fileManager: new ExclusionManager(opt.ignoreFiles)
-  },
-  jsFiles;
+  if (!options.directory) { throw new Error('directory not given'); }
+  if (!options.success) { throw new Error('success callback not given'); }
 
-  directory = path.resolve(directory);
+  options.directory = path.resolve(options.directory);
 
-  jsFiles = getAllJSFiles(directory, options);
-
-  // Filter out non-modules
-  jsFiles = jsFiles.filter(function(file) {
-    return gmt.sync(file) !== 'none';
-  });
-
-  options.includeNoDependencyModules = true;
-  options.directory = directory;
-
-  // Get all files that are not depended on
-  getIndependentJSFiles(jsFiles, options)
-    .done(function (jsFiles) {
-      cb(jsFiles);
+  getAllFiles(options)
+  .then(function(files) {
+    // Remove non-modules
+    return files.filter(function(file) {
+      return path.extname(file) !== '.js' || gmt.sync(file) !== 'none';
     });
+  })
+  .then(function(files) {
+    // Get all files that are not depended on
+    return getIndependentFiles(files, options);
+  })
+  .done(function(files) {
+    options.success(files);
+  });
 };
 
 /**
- * Returns a list of all JavaScript filepaths relative to the given directory
+ * Returns a list of all filepaths relative to the given directory
  *
- * @param  {String}           directory
- * @param  {Object}           opt
- * @param  {ExclusionManager} opt.dirManager
- * @param  {ExclusionManager} opt.fileManager
- * @return {Array}
- */
-function getAllJSFiles(directory, opt) {
-  var jsFilePaths = [];
-
-  fs.readdirSync(directory).forEach(function (filename) {
-    var fullName    = path.resolve(directory, filename),
-        isDirectory = fs.lstatSync(fullName).isDirectory(),
-        ext         = path.extname(filename);
-
-    if (isDirectory) {
-      if (opt.dirManager.shouldIgnore(filename)) return;
-
-      jsFilePaths = jsFilePaths.concat(getAllJSFiles(fullName, opt));
-
-    } else if (ext === '.js') {
-      if (opt.fileManager.shouldIgnore(filename)) return;
-
-      jsFilePaths.push(fullName);
-    }
-  });
-
-  return jsFilePaths;
-}
-
-/**
- * @param  {Array}    jsFiles
  * @param  {Object}   options
- * @param  {Boolean}  options.includeNoDependencyModules
- * @return {Promise}  ({Array}) -> null Resolves with the list of independent filenames
+ * @param  {String}   options.directory
+ * @param  {String[]} [options.ignoreDirectories=null]
+ * @param  {String[]} [options.ignoreFiles=null]
+ * @return {Promise}
  */
-function getIndependentJSFiles(jsFiles, options) {
-  // For each file, mark its non-core dependencies as used
-  return q.all(jsFiles.map(getNonCoreDependencies))
-    .then(function (results) {
-      // A look up table of all files used as dependencies within the directory
-      var dependencies = {};
-
-      results.forEach(function (deps, idx) {
-        // Files with no dependencies are useless and should not be roots
-        if (! options.includeNoDependencyModules && (! deps || ! deps.length)) {
-          dependencies[jsFiles[idx]] = true;
-
-        } else {
-          deps.forEach(function (dep) {
-            if (dep.core) return;
-
-            if (dep.filename.indexOf('.js') === -1) {
-              dep.filename += '.js';
-            }
-
-            dependencies[dep.filename] = true;
-          });
-        }
-      });
-
-      // Return all unused (independent) js files
-      return jsFiles.filter(function (jsFile) {
-        return typeof dependencies[jsFile] === 'undefined';
-      });
-    });
-}
-
-/**
- * Resolve with a list of non-core dependencies for the given file
- * @param  {Object} opts
- * @param  {Object} opts
- * @param  {[type]} jsFile [description]
- * @return {[type]}        [description]
- */
-function getNonCoreDependencies(jsFile) {
-  return getModuleType(jsFile)
-    .then(function (moduleType) {
-      // Options for required
-      var options = {
-        detective:     getAppropriateDetective(moduleType),
-        ignoreMissing: true
-      },
-
-      deferred = q.defer();
-
-      // Bypass required since it doesn't play well with amd dependencies
-      // TODO: Consider using a custom resolver with required
-      if (moduleType === 'amd') {
-        var content = fs.readFileSync(jsFile).toString(),
-            fileDir = path.dirname(jsFile),
-            deps = options.detective(content).map(function(d) {
-              return {
-                filename: path.resolve(fileDir, d)
-              };
-            });
-
-        deferred.resolve(deps);
-
-      } else if (moduleType === 'commonjs') {
-        required(jsFile, options, function (err, deps) {
-          if (err) console.log(jsFile, err);
-          deps = deps || [];
-
-          var nonCoreDeps = deps.filter(function (dep) {
-            return ! dep.core;
-          });
-
-          deferred.resolve(nonCoreDeps);
-        });
-
-      } else {
-        deferred.resolve([]);
-      }
-
-      return deferred.promise;
-    });
-}
-
-/**
- * Returns the detective function appropriate to the given module type
- * @param  {String} moduleType
- * @return {Function|null} The detective for the module type
- */
-function getAppropriateDetective(moduleType) {
-  switch (moduleType) {
-    case 'commonjs':
-      return detective;
-    case 'amd':
-      return detectiveAmd;
-  }
-
-  return null;
-}
-
-/**
- * Promisified wrapper of gmt
- * @param  {String} jsFile
- * @return {Promise} - ({String}) -> null - Resolves with the file's module type
- */
-function getModuleType(jsFile) {
+function getAllFiles(options) {
   var deferred = q.defer();
 
-  gmt(jsFile, function (moduleType) {
-    deferred.resolve(moduleType);
+  dir.readFiles(options.directory, {
+    exclude: options.ignoreFiles || null,
+    excludeDir: options.ignoreDirectories || null
+  },
+  function(err, content, next) {
+    if (err) {
+      deferred.reject(err);
+      return;
+    }
+
+    next();
+  },
+  function(err, files) {
+    if (err) {
+      deferred.reject(err);
+      return;
+    }
+
+    deferred.resolve(files);
   });
 
   return deferred.promise;
+}
+
+/**
+ * @param  {String[]} files
+ * @param  {Object}   options
+ * @param  {Boolean}  options.includeNoDependencyModules
+ * @param  {String}  options.directory
+ * @return {Promise}  Resolves with the list of independent filenames
+ */
+function getIndependentFiles(files, options) {
+  // A look up table of all files used as dependencies within the directory
+  var dependencies = {};
+
+  files.forEach(function(file) {
+    var deps = getNonCoreDependencies(file);
+
+    if (!options.includeNoDependencyModules && !deps.length) {
+      // Files with no dependencies are useless and should not be roots
+      // so we add them to the list so they're no longer root candidates
+      dependencies[file] = true;
+      return;
+    }
+
+    deps.forEach(function(dep) {
+      dep = resolveDep(dep, file, options.directory);
+      dependencies[dep] = true;
+    });
+  });
+
+  // Files that haven't been depended on
+  return files.filter(function(file) {
+    return typeof dependencies[file] === 'undefined';
+  });
+}
+
+/**
+ * Resolve a dependency's path
+ * @param  {String} dep - The dependency name to resolve
+ * @param  {String} filename - Filename that contains the dependency
+ * @param  {String} directory - Root of all files
+ * @return {String} Absolute/resolved path of the dependency
+ */
+function resolveDep(dep, filename, directory) {
+  var filepath;
+  var depExt = path.extname(dep);
+  var fileExt = path.extname(filename);
+  var isRelative = function(path) {
+    return dep.indexOf('..') === 0 || dep.indexOf('.') === 0;
+  };
+
+  if (isRelative(dep)) {
+    filepath = path.resolve(path.dirname(filename), dep);
+  } else {
+    filepath = path.resolve(directory, dep);
+  }
+
+  if (!depExt) {
+    filepath += fileExt;
+  }
+
+  return filepath;
+}
+
+/**
+ * Get a list of non-core dependencies for the given file
+ * @param  {String} file
+ * @return {String[]}
+ */
+function getNonCoreDependencies(file) {
+  return precinct.paperwork(file, {
+    includeCore: false
+  });
 }
