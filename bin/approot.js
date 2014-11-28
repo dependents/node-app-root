@@ -9,8 +9,11 @@ if (!directory) {
   throw new Error('please supply a directory');
 }
 
-getAppRoots(directory, function(roots) {
-  roots.forEach(function(root) {
-    console.log(root);
-  });
+getAppRoots({
+  directory: directory,
+  success: function(roots) {
+    roots.forEach(function(root) {
+      console.log(root);
+    });
+  }
 });

@@ -29,6 +29,7 @@
   "homepage": "https://github.com/mrjoelkemp/node-app-root",
   "dependencies": {
     "module-definition": "~2.1.0",
+    "module-lookup-amd": "~1.0.0",
     "node-dir": "~0.1.6",
     "precinct": "~2.3.1",
     "q": "~1.0.1"

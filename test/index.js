@@ -15,7 +15,7 @@ describe('app-root', function() {
 
   it('omits no dependency modules by default', function(done) {
     var opts = {
-      directory: __dirname + '/commonjs',
+      directory: __dirname + '/apps/commonjs',
       success: function(root) {
         assert(!root.some(function(r) {
           return r.indexOf('noDep.js') !== -1;
@@ -30,7 +30,7 @@ describe('app-root', function() {
   describe('includeNoDependencyModules', function() {
     it('includes no dependency modules if set', function(done) {
       var opts = {
-        directory: __dirname + '/commonjs',
+        directory: __dirname + '/apps/commonjs',
         includeNoDependencyModules: true,
         success: function(root) {
           assert(root.some(function(r) {
@@ -47,7 +47,7 @@ describe('app-root', function() {
   describe('ignoreDirectories', function() {
     it('does not ignore any directories by default', function(done) {
       var opts = {
-        directory: __dirname + '/amd',
+        directory: __dirname + '/apps/amd',
         success: function(root) {
           assert(root.some(function(r) {
             return r.indexOf('bower_components') !== -1;
@@ -61,7 +61,7 @@ describe('app-root', function() {
 
     it('ignores processing files within supplied directories', function(done) {
       var opts = {
-        directory: __dirname + '/amd',
+        directory: __dirname + '/apps/amd',
         ignoreDirectories: options.ignoreDirectories,
         success: function(root) {
           assert(!root.some(function(r) {
@@ -91,7 +91,7 @@ describe('app-root', function() {
 
   it('finds the roots of an entire directory of multiple apps', function(done) {
     var opts = {
-      directory: __dirname,
+      directory: __dirname + '/apps',
       success: function(root) {
         assert(root.length === 3);
         assert(root[0].indexOf('a2.js') !== -1);
@@ -109,7 +109,7 @@ describe('app-root', function() {
   describe('commonjs', function() {
     it('finds the roots of a commonjs app', function(done) {
       var opts = {
-        directory: __dirname + '/commonjs',
+        directory: __dirname + '/apps/commonjs',
 
         success: function(root) {
           assert(root.length === 1);
@@ -127,7 +127,7 @@ describe('app-root', function() {
   describe('amd', function() {
     it('finds the roots of an amd app', function(done) {
       var opts = {
-        directory: __dirname + '/amd',
+        directory: __dirname + '/apps/amd',
         success: function(root) {
           assert(root.length === 1);
           assert(root[0].indexOf('a2.js') !== -1);
@@ -140,13 +140,25 @@ describe('app-root', function() {
       getAppRoot(opts);
     });
 
-    it.skip('handles aliased modules', function() {});
+    it('handles aliased modules with a supplied config', function(done) {
+      var opts = {
+        directory: __dirname + '/aliased',
+        config: __dirname + '/aliased/config.json',
+        success: function(root) {
+          assert(root.length === 1);
+          assert(root[0].indexOf('root.js') !== -1);
+          done();
+        }
+      };
+
+      getAppRoot(opts);
+    });
   });
 
   describe('sass', function() {
     it('finds the roots of a sass codebase', function(done) {
       var opts = {
-        directory: __dirname + '/sass',
+        directory: __dirname + '/apps/sass',
         success: function(root) {
           assert(root.length === 1);
           assert(root[0].indexOf('root.scss') !== -1);

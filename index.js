@@ -3,6 +3,7 @@ var path = require('path');
 var q = require('q');
 var dir = require('node-dir');
 var gmt = require('module-definition');
+var lookup = require('module-lookup-amd');
 
 /**
  * Calls the given callback with a list of candidate root filenames
@@ -11,9 +12,11 @@ var gmt = require('module-definition');
  * @param {String} options.directory - Where to look for roots
  * @param {Function} options.success - Executed with the list of roots
  *
- * @param {Array} [options.ignoreDirectories] - List of directory names to ignore in the root search
- * @param {Array} [options.ignoreFiles] - List of filenames to ignore in the root search
- * @param {Boolean} [options.includeNoDependencyModules=undefined] - Whether or not to include modules with no dependencies
+ * @param {String} [options.config] - Module loader configuration for aliased path resolution
+ *
+ * @param {String[]} [options.ignoreDirectories] - List of directory names to ignore in the root search
+ * @param {String[]} [options.ignoreFiles] - List of filenames to ignore in the root search
+ * @param {Boolean} [options.includeNoDependencyModules=false] - Whether or not to include modules with no dependencies
  */
 module.exports = function(options) {
   options = options || {};
@@ -22,12 +25,21 @@ module.exports = function(options) {
   if (!options.success) { throw new Error('success callback not given'); }
 
   options.directory = path.resolve(options.directory);
+  options.includeNoDependencyModules = !!options.includeNoDependencyModules;
 
   getAllFiles(options)
   .then(function(files) {
+    return files
+    // Types are used to determine if lookups are necessary
+    .map(function(file) {
+      return fileObj = {
+        path: file,
+        type: path.extname(file) === '.js' ? gmt.sync(file) : ''
+      };
+    })
     // Remove non-modules
-    return files.filter(function(file) {
-      return path.extname(file) !== '.js' || gmt.sync(file) !== 'none';
+    .filter(function(fileObj) {
+      return fileObj.type !== 'none';
     });
   })
   .then(function(files) {
@@ -76,10 +88,10 @@ function getAllFiles(options) {
 }
 
 /**
- * @param  {String[]} files
+ * @param  {Object[]} files
  * @param  {Object}   options
  * @param  {Boolean}  options.includeNoDependencyModules
- * @param  {String}  options.directory
+ * @param  {String}   options.directory
  * @return {Promise}  Resolves with the list of independent filenames
  */
 function getIndependentFiles(files, options) {
@@ -87,24 +99,40 @@ function getIndependentFiles(files, options) {
   var dependencies = {};
 
   files.forEach(function(file) {
-    var deps = getNonCoreDependencies(file);
+    var deps;
+
+    // If a file cannot be parsed, it shouldn't be considered a root
+    try {
+      deps = getNonCoreDependencies(file.path);
+    } catch (e) {
+      dependencies[file.path] = true;
+      return;
+    }
 
     if (!options.includeNoDependencyModules && !deps.length) {
       // Files with no dependencies are useless and should not be roots
       // so we add them to the list so they're no longer root candidates
-      dependencies[file] = true;
+      dependencies[file.path] = true;
       return;
     }
 
     deps.forEach(function(dep) {
-      dep = resolveDep(dep, file, options.directory);
+      if (file.type === 'amd' && options.config) {
+        dep = lookup(options.config, dep);
+      }
+
+      dep = resolveDep(dep, file.path, options.directory);
       dependencies[dep] = true;
     });
   });
 
   // Files that haven't been depended on
-  return files.filter(function(file) {
-    return typeof dependencies[file] === 'undefined';
+  return files
+  .filter(function(file) {
+    return typeof dependencies[file.path] === 'undefined';
+  })
+  .map(function(file) {
+    return file.path;
   });
 }
 
