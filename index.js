@@ -4,6 +4,7 @@ var q = require('q');
 var dir = require('node-dir');
 var gmt = require('module-definition');
 var lookup = require('module-lookup-amd');
+var resolveDep = require('resolve-dependency-path');
 
 /**
  * Calls the given callback with a list of candidate root filenames
@@ -134,34 +135,6 @@ function getIndependentFiles(files, options) {
   .map(function(file) {
     return file.path;
   });
-}
-
-/**
- * Resolve a dependency's path
- * @param  {String} dep - The dependency name to resolve
- * @param  {String} filename - Filename that contains the dependency
- * @param  {String} directory - Root of all files
- * @return {String} Absolute/resolved path of the dependency
- */
-function resolveDep(dep, filename, directory) {
-  var filepath;
-  var depExt = path.extname(dep);
-  var fileExt = path.extname(filename);
-  var isRelative = function(path) {
-    return dep.indexOf('..') === 0 || dep.indexOf('.') === 0;
-  };
-
-  if (isRelative(dep)) {
-    filepath = path.resolve(path.dirname(filename), dep);
-  } else {
-    filepath = path.resolve(directory, dep);
-  }
-
-  if (!depExt) {
-    filepath += fileExt;
-  }
-
-  return filepath;
 }
 
 /**
