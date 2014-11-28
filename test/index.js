@@ -93,10 +93,8 @@ describe('app-root', function() {
     var opts = {
       directory: __dirname + '/apps',
       success: function(root) {
-        assert(root.length === 3);
-        assert(root[0].indexOf('a2.js') !== -1);
-        assert(root[1].indexOf('a2.js') !== -1);
-        assert(root[2].indexOf('root.scss') !== -1);
+        // Equal to the number of apps within /apps/
+        assert(root.length === 4);
         done();
       }
     };
@@ -162,6 +160,21 @@ describe('app-root', function() {
         success: function(root) {
           assert(root.length === 1);
           assert(root[0].indexOf('root.scss') !== -1);
+          done();
+        }
+      };
+
+      getAppRoot(opts);
+    });
+  });
+
+  describe('es6', function() {
+    it('finds the roots of an es6 codebase', function(done) {
+      var opts = {
+        directory: __dirname + '/apps/es6',
+        success: function(root) {
+          assert(root.length === 1);
+          assert(root[0].indexOf('root.js') !== -1);
           done();
         }
       };
