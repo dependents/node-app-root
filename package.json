@@ -1,6 +1,6 @@
 {
   "name": "app-root",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Find the entry-point/root file of a front-end application",
   "main": "index.js",
   "scripts": {
