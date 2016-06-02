@@ -6,7 +6,7 @@ define(function (require) {
       http = require('http'),
 
       // Makes this the root
-      a = require('./a');
+      a = require('a');
 
   console.log('Booyah');
 
