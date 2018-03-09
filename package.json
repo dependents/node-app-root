@@ -28,13 +28,13 @@
   },
   "homepage": "https://github.com/mrjoelkemp/node-app-root",
   "dependencies": {
-    "debug": "~2.2.0",
-    "filing-cabinet": "~1.2.3",
-    "module-definition": "^2.1.0",
+    "debug": "^3.1.0",
+    "filing-cabinet": "^1.14.0",
+    "module-definition": "^2.2.4",
     "node-dir": "~0.1.6",
-    "object-assign": "~4.1.0",
-    "precinct": "~2.5.1",
-    "q": "^1.0.1"
+    "object-assign": "~4.1.1",
+    "precinct": "^4.0.0",
+    "q": "^1.5.1"
   },
   "devDependencies": {
     "jscs": "~2.11.0",
